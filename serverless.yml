@@ -1,0 +1,50 @@
+service: node-elasticache-serverless
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: eu-central-1
+  timeout: 30 # optional, in seconds, default is 6
+  iam:
+    role:
+      managedPolicies:
+        - "arn:aws:iam::aws:policy/AmazonElastiCacheFullAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+
+custom:
+  vpcId: ${ssm:/node_elasticache_serverless/vpc/vpc_id}
+
+package:
+  exclude:
+    - ./terraform/**
+
+functions:
+  getPrices:
+    handler: handler.getPrices
+    environment:
+      PRICES_API_URL: https://api.coingecko.com/api/v3/coins/bitcoin
+      REDIS_HOST: ${ssm:/node_elasticache_serverless/elasticache/endpoint}
+      REDIS_PORT: 6379
+    events:
+      - httpApi: 
+          path: /current-prices
+          method: GET
+    vpc:
+      securityGroupIds:
+        - !GetAtt LambdaSecurityGroup.GroupId
+      subnetIds:
+        - ${ssm:/node_elasticache_serverless/vpc/private_subnet_id}
+
+resources:
+  Resources:
+    LambdaSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Allow open egress to anywhere
+        VpcId: ${self:custom.vpcId}
+        SecurityGroupEgress:
+          - IpProtocol: '-1'
+            FromPort: 0
+            ToPort: 0
+            CidrIp: 0.0.0.0/0
