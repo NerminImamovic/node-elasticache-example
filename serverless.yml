@@ -1,4 +1,4 @@
-service: node-elasticache-serverless
+service: node-elasticache-example
 frameworkVersion: "3"
 
 provider:
